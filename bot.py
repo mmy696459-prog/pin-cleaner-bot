@@ -1,5 +1,5 @@
 from telethon import TelegramClient, events
-from telethon.tl.functions.channels import GetFullChannelRequest
+from telethon.tl.functions.messages import GetPinnedMessagesRequest
 import asyncio
 
 API_ID = 33017187
@@ -16,30 +16,24 @@ async def clear_ghost_pins(event):
     chat = await event.get_chat()
     await event.reply("Scanning for ghost pins...")
     try:
-        full_channel = await bot(GetFullChannelRequest(channel=chat))
-        pinned_msg_ids = full_channel.full_chat.pinned_msg_ids
-        if not pinned_msg_ids:
+        result = await bot(GetPinnedMessagesRequest(peer=chat))
+        all_messages = result.messages
+        if not all_messages:
             await event.reply("No pinned messages found in this channel.")
             return
         removed = 0
-        for msg_id in pinned_msg_ids:
-            try:
-                msg = await bot.get_messages(chat, ids=msg_id)
-                if msg is None:
-                    await bot.unpin_message(chat, message=msg_id)
-                    removed += 1
-                    await asyncio.sleep(0.5)
-            except Exception:
+        for msg in all_messages:
+            if msg.__class__.__name__ == 'MessageEmpty' or msg.__class__.__name__ == 'MessageService':
                 try:
-                    await bot.unpin_message(chat, message=msg_id)
+                    await bot.unpin_message(chat, message=msg.id)
                     removed += 1
                     await asyncio.sleep(0.5)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"Failed to unpin {msg.id}: {e}")
         if removed > 0:
             await event.reply(f"Done! Removed {removed} ghost pin(s).")
         else:
-            await event.reply("No ghost pins found.")
+            await event.reply("No ghost pins found. All pinned messages are still alive.")
     except Exception as e:
         await event.reply(f"Error: {e}")
 
