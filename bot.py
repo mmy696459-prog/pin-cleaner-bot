@@ -1,6 +1,6 @@
+import asyncio
 from telethon import TelegramClient, events
 from telethon.tl.functions.channels import GetFullChannelRequest
-from telethon.tl.types import ChannelFull, Message
 
 API_ID = 33017187
 API_HASH = '31ffa8744c33d4e7e537beddeb6dcb6a'
@@ -11,19 +11,9 @@ client = TelegramClient('ghost_pin_cleaner_bot', API_ID, API_HASH).start(bot_tok
 @client.on(events.NewMessage(pattern='/clearpins', forwards=False, outgoing=False))
 async def clear_ghost_pins(event):
     if not event.is_channel:
+        await event.reply("This command only works in channels.")
         return
     chat = await event.get_chat()
-    sender = await event.get_sender()
-    is_admin = False
-    if event.is_group or event.is_channel:
-        participants = await client.get_participants(chat, filter=None)
-        for p in participants:
-            if p.id == sender.id and (p.admin_rights or p.creator):
-                is_admin = True
-                break
-    if not is_admin:
-        await event.reply("You need to be an administrator to use this command.")
-        return
     await event.reply("Scanning for ghost pins...")
     try:
         full_channel = await client(GetFullChannelRequest(channel=chat))
@@ -35,7 +25,7 @@ async def clear_ghost_pins(event):
         for msg_id in pinned_messages_ids:
             try:
                 message = await client.get_messages(chat, ids=msg_id)
-                if message is None or isinstance(message, Message) and message.media is None and message.message is None:
+                if message is None:
                     await client.unpin_message(chat, message=msg_id)
                     ghost_pins_removed_count += 1
                     await asyncio.sleep(0.1)
@@ -43,6 +33,7 @@ async def clear_ghost_pins(event):
                 try:
                     await client.unpin_message(chat, message=msg_id)
                     ghost_pins_removed_count += 1
+                    await asyncio.sleep(0.1)
                 except:
                     pass
         if ghost_pins_removed_count > 0:
